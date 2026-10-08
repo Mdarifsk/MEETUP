@@ -3,6 +3,7 @@ import {ArrowRightIcon, KeyboardIcon, PlusIcon, ShieldCheckIcon} from "lucide-re
 import {useNavigate} from 'react-router-dom'
 import { dummyStats, dummyUser } from '../assets/asset';
 import toast from "react-hot-toast";
+import { useUser } from '@clerk/react';
 
 
 
@@ -10,7 +11,7 @@ import toast from "react-hot-toast";
 
 const Dashboard = () => {
 
-  const user = dummyUser;
+  const {user} = useUser();
   const username = user.fullName;
   const userEmail = user.primaryEmailAddress.emailAddress;
   const navigate = useNavigate()

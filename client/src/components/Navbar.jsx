@@ -5,7 +5,7 @@ import { AstroidIcon, HistoryIcon, LayoutDashboardIcon } from 'lucide-react'
 import { UserButton, useUser } from '@clerk/react'
 
 const Navbar = () => {
-    const {isSignedIn, user} = {user : dummyUser, isSignedIn : true}
+    const {isSignedIn, user} = useUser()
     const location = useLocation()
     const userName = user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress?.split("@")[0] || "User";
   return (
