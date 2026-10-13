@@ -64,17 +64,38 @@ export function setupSocketIO(io){
                 // Add new participant to socket state
                 roomParticipants.set(socket.id, currentUser);
 
-                // Save participant into DB if not already present
                 const userId = user?.id || null;
+
+                if (userId) {
+                    await sql`
+                        INSERT INTO users (id, name, email, image, plan)
+                        VALUES (
+                            ${userId},
+                            ${currentUser.userName},
+                            '',
+                            '',
+                            'free'
+                        )
+                        ON CONFLICT (id) DO NOTHING
+                    `;
+                }
+
+                // Save participant into DB if not already present
                 const existingParticipants = await sql`
                     SELECT id FROM meeting_participants
                     WHERE meeting_id = ${meeting.id}
-                    AND ((${userId}::text IS NOT NULL AND user_id = ${userId}) OR name = ${currentUser.userName})`;
+                    AND (
+                        (${userId}::text IS NOT NULL AND user_id = ${userId})
+                        OR name = ${currentUser.userName}
+                    )
+                `;
 
-                if(existingParticipants.length === 0){
+                if (existingParticipants.length === 0) {
                     await sql`
-                        INSERT INTO meeting_participants (meeting_id, user_id, name, joined_at)
-                        VALUES (${meeting.id}, ${userId}, ${currentUser.userName}, NOW())
+                        INSERT INTO meeting_participants
+                            (meeting_id, user_id, name, joined_at)
+                        VALUES
+                            (${meeting.id}, ${userId}, ${currentUser.userName}, NOW())
                     `;
                 }
 
@@ -173,7 +194,11 @@ export function setupSocketIO(io){
                     SET status = 'ended', ended_at = NOW()
                     WHERE meeting_id = ${roomId}`;
 
-                    io.on(roomId).emit("meeting-ended", { message: "The meeting has been ended by the host." });
+                    
+io.to(roomId).emit("meeting-ended", {
+    message: "The meeting has been ended by the host."
+});
+
                     rooms.delete(roomId);
              } catch (err) {
                 console.error("Error ending meeting:", err);

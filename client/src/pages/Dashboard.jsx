@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react'
 import {ArrowRightIcon, KeyboardIcon, PlusIcon, ShieldCheckIcon} from "lucide-react"
 import {useNavigate} from 'react-router-dom'
-import { dummyStats, dummyUser } from '../assets/asset';
 import toast from "react-hot-toast";
-import { useUser } from '@clerk/react';
+import { useAuth, useUser } from '@clerk/react';
+import api from '../config/api.js';
 
 
 
@@ -12,13 +12,15 @@ import { useUser } from '@clerk/react';
 const Dashboard = () => {
 
   const {user} = useUser();
-  const username = user.fullName;
+  const userName = user.fullName;
   const userEmail = user.primaryEmailAddress.emailAddress;
+
+   const {isLoaded, isSignedIn, getToken} = useAuth()
   const navigate = useNavigate()
 
   const [isCreating, setIsCreating] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
-  const stats = dummyStats;
+  const [stats, setStats] = useState(null)
 
   const [joinId, setJoinId] = useState("")
 
@@ -27,21 +29,43 @@ const Dashboard = () => {
     return ()=> clearInterval(timer)
   },[])
 
+  useEffect(()=>{
+    const fetchStats = async () => {
+      if (!isLoaded || !isSignedIn) return;
+
+      try {
+        const token = await getToken();
+        const { data } = await api.get("/api/meetings/stats", {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        setStats(data)
+      } catch (error) {
+        toast.error(error.response?.data?.error || error.message)
+      }
+    };
+    fetchStats();
+  },[isLoaded, isSignedIn, getToken])
+
+
+
   const handleCreateMeeting = async () =>{
+    if(!isLoaded || !isSignedIn) return;
     setIsCreating(true)
+   
+    try {
+      const token = await getToken();
+      const res = await api.post("/api/meetings", { title: `${userName}'s Meeting` }, {
+        headers: { Authorization: `Bearer ${token}`, },
+      })
 
-    const chars = "abcdefghijklmnopqrstuvwxyz";
-
-    const seg = ()=> Array.from({length: 3}, ()=> chars[Math.floor(Math.random() * chars.length)]).join("");
-
-    const newMeetingId = `${seg()}-${seg()}-${seg()}`;
-
-    setTimeout(()=>{
+      const meetingId = res.data.meeting.meetingId;
+      toast.success("Meeting created!");
+      navigate(`/meeting/${meetingId}`);
+    } catch (error) {
+      toast.error(error.response?.data?.error || error.message);
+    }finally{
       setIsCreating(false)
-      toast.success("Meeting created !");
-      navigate(`/meeting/${newMeetingId}`);
-    },400)
-    
+    }
 
   }
 
@@ -52,8 +76,14 @@ const Dashboard = () => {
       toast.error("Please enter a valid Meeting ID");
       return;
     }
-    navigate(`/meeting/${encodeURIComponent(cleanId)}`);
-    
+
+   try {
+    const token = await getToken();
+    await api.get(`/api/meetings/${cleanId}`, {headers: { Authorization: `Bearer ${token}`,}})
+    navigate(`/meeting/${cleanId}`);
+   } catch (error) {
+    toast.error("Meeting not found. Check the ID and try again.");
+   }
   }
 
 
@@ -110,7 +140,7 @@ const Dashboard = () => {
 <div className='lg:col-span-5 flex flex-col items-center justify-center space-y-4'>
           <div className='w-full bg-white/25 backdrop-blur rounded-4xl p-8 border border-slate-200 text-center space-y-6 relative overflow-hidden'>
             <div className='space-y-1'>
-              <p className='mb-5 text-xl text-left'>Hi, <span className='font-medium'>{username}</span></p>
+              <p className='mb-5 text-xl text-left'>Hi, <span className='font-medium'>{userName}</span></p>
 
               <h2 className='text-4xl xl:text-7xl my-4 text-slate-900 tracking-wide'>
                 {currentTime.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}
